@@ -1,6 +1,6 @@
 /* Service Worker: App offline verfügbar machen.
  * Bei Änderungen an der App CACHE-Version erhöhen. */
-const CACHE = 'etb-v1.0.0';
+const CACHE = 'etb-v1.1.0';
 const ASSETS = [
   './',
   './index.html',

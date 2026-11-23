@@ -3,7 +3,7 @@
  */
 'use strict';
 
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.1.0';
 
 /* ---------- Hilfsfunktionen ---------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -93,6 +93,7 @@ const DEFAULT_SETTINGS = {
   einheit: 'OV …, TZ, FGr WP (A)',
   pumpen: [],
   helfer: [],
+  fahrzeuge: [],
 };
 
 const S = { settings: { ...DEFAULT_SETTINGS }, einsatz: null, eintraege: [], tab: 'etb', fotoFilter: null };
@@ -276,9 +277,17 @@ function einsatzForm(e = {}) {
       <label>Truppführer/in<input name="fuehrer" value="${esc(e.fuehrer ?? s.name ?? '')}"></label>
       <label>Stärke (Fü/UF/H/Ges.)<input name="staerke" value="${esc(e.staerke || '')}" placeholder="0/1/5/6" inputmode="numeric"></label>
     </div>
-    <label>Fahrzeuge / Funkrufnamen<input name="fahrzeuge" value="${esc(e.fahrzeuge || '')}" placeholder="z. B. MzGW, LKW-K, Anhänger"></label>
+    ${!e.id && s.fahrzeuge?.length ? `
+    <label>Fahrzeuge</label>
+    ${s.fahrzeuge.map((f, i) => `<label class="inline"><input type="checkbox" name="fzg_${i}" checked> ${esc(fahrzeugLabel(f))}</label>`).join('')}
+    <label>Weitere Fahrzeuge<input name="fahrzeuge" placeholder="z. B. zusätzlicher Anhänger"></label>`
+    : `<label>Fahrzeuge / Funkrufnamen<input name="fahrzeuge" value="${esc(e.fahrzeuge || '')}" placeholder="z. B. MzGW, LKW-K, Anhänger"></label>`}
     <label>Bemerkung<textarea name="bemerkung" rows="2">${esc(e.bemerkung || '')}</textarea></label>`;
 }
+const fahrzeugLabel = (f) => {
+  const extra = [f.funk, f.kennz].filter(Boolean).join(', ');
+  return f.typ ? f.typ + (extra ? ` (${extra})` : '') : extra;
+};
 const FELD_LABEL = { bezeichnung: 'Einsatz', nr: 'Einsatz-Nr.', ort: 'Einsatzort', auftraggeber: 'Anfordernde Stelle', fuehrung: 'Unterstellt', einheit: 'Einheit', fuehrer: 'Truppführer/in', staerke: 'Stärke', fahrzeuge: 'Fahrzeuge', bemerkung: 'Bemerkung' };
 const EINSATZ_FELDER = Object.keys(FELD_LABEL);
 
@@ -292,6 +301,11 @@ async function newEinsatz() {
     personal: (S.settings.helfer || []).map((p) => ({ id: uid(), name: p.name, funktion: p.funktion, kommt: null, geht: null })),
   };
   for (const k of EINSATZ_FELDER) e[k] = (d[k] || '').trim();
+  if (S.settings.fahrzeuge?.length) {
+    const gew = S.settings.fahrzeuge.filter((f, i) => d[`fzg_${i}`]).map(fahrzeugLabel);
+    if (e.fahrzeuge) gew.push(e.fahrzeuge);
+    e.fahrzeuge = gew.join('; ');
+  }
   const first = mkEntry(e, { zeit: e.beginn, kat: 'Status', text: `Alarmierung: ${e.bezeichnung}${e.ort ? ' – ' + e.ort : ''}${e.auftraggeber ? ' (Anforderung: ' + e.auftraggeber + ')' : ''}` });
   await DB.putBoth(e, [first]);
   location.hash = `#/e/${e.id}`;
@@ -972,6 +986,7 @@ function showSettings() {
   setTabs(null); setFab(null);
   const s = S.settings;
   const pRow = (p = {}) => `<div class="row"><input name="pname" placeholder="Bezeichnung" value="${esc(p.name || '')}"><input name="plpm" type="number" inputmode="numeric" placeholder="l/min" style="max-width:110px" value="${esc(p.lpm || '')}"><button type="button" class="btn sm" data-del>✕</button></div>`;
+  const fRow = (f = {}) => `<div class="row wrap fzg"><input name="ftyp" placeholder="Fahrzeug (z. B. MzGW)" value="${esc(f.typ || '')}" style="flex:1 1 140px"><input name="ffunk" placeholder="Funkrufname" value="${esc(f.funk || '')}" style="flex:1 1 140px"><input name="fkennz" placeholder="Kennzeichen" value="${esc(f.kennz || '')}" style="flex:1 1 110px"><button type="button" class="btn sm" data-del>✕</button></div>`;
   const hRow = (h = {}) => `<div class="row"><input name="hname" placeholder="Name" value="${esc(h.name || '')}"><input name="hfkt" placeholder="Funktion" list="dlFkt" style="max-width:150px" value="${esc(h.funktion || '')}"><button type="button" class="btn sm" data-del>✕</button></div>`;
   view.innerHTML = `
     <form id="setForm">
@@ -987,6 +1002,10 @@ function showSettings() {
       <div class="card list-edit"><div id="hList">${(s.helfer.length ? s.helfer : [{}]).map(hRow).join('')}</div>
         <button type="button" class="btn sm" id="hAdd">+ Helfer/in</button>
         <div class="muted small" style="margin-top:8px">Diese Personen werden bei neuen Einsätzen vorbelegt (noch nicht angemeldet).</div></div>
+      <h2>Standard-Fahrzeuge</h2>
+      <div class="card list-edit"><div id="fList">${(s.fahrzeuge.length ? s.fahrzeuge : [{}]).map(fRow).join('')}</div>
+        <button type="button" class="btn sm" id="fAdd">+ Fahrzeug</button>
+        <div class="muted small" style="margin-top:8px">Werden bei neuen Einsätzen zum Ankreuzen angeboten (standardmäßig alle ausgewählt).</div></div>
       <datalist id="dlFkt">${FUNKTIONEN.map((f) => `<option value="${esc(f)}">`).join('')}</datalist>
       <button class="btn primary block big" type="submit">Speichern</button>
     </form>
@@ -995,6 +1014,7 @@ function showSettings() {
   const f = $('#setForm');
   const bindDel = () => f.querySelectorAll('[data-del]').forEach((b) => { b.onclick = () => b.parentElement.remove(); });
   $('#pAdd').onclick = () => { $('#pList').insertAdjacentHTML('beforeend', pRow()); bindDel(); };
+  $('#fAdd').onclick = () => { $('#fList').insertAdjacentHTML('beforeend', fRow()); bindDel(); };
   $('#hAdd').onclick = () => { $('#hList').insertAdjacentHTML('beforeend', hRow()); bindDel(); };
   bindDel();
   f.onsubmit = async (ev) => {
@@ -1002,6 +1022,7 @@ function showSettings() {
     s.name = f.elements.namedItem('name').value.trim();
     s.einheit = f.elements.namedItem('einheit').value.trim();
     s.pumpen = [...$('#pList').children].map((r) => ({ name: r.querySelector('[name=pname]').value.trim(), lpm: Number(r.querySelector('[name=plpm]').value) || 0 })).filter((p) => p.name);
+    s.fahrzeuge = [...$('#fList').children].map((r) => ({ typ: r.querySelector('[name=ftyp]').value.trim(), funk: r.querySelector('[name=ffunk]').value.trim(), kennz: r.querySelector('[name=fkennz]').value.trim() })).filter((f) => f.typ || f.funk);
     s.helfer = [...$('#hList').children].map((r) => ({ name: r.querySelector('[name=hname]').value.trim(), funktion: r.querySelector('[name=hfkt]').value.trim() })).filter((h) => h.name);
     await saveSettings();
     toast('Einstellungen gespeichert');

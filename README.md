@@ -23,7 +23,7 @@ Fachgruppe Wasserschäden/Pumpen. Läuft komplett **offline**, die Daten bleiben
   - CSV für Excel/LibreOffice
   - JSON als vollständige Sicherung, auf anderem Gerät wieder einlesbar
   - „Teilen …“ öffnet das Teilen-Menü des Handys (Mail, Messenger, Cloud, Drucken)
-- **Einstellungen**: eigener Name, Einheit, Standard-Pumpen und Standard-Trupp
+- **Einstellungen**: eigener Name, Einheit, Standard-Pumpen, Standard-Fahrzeuge (Typ, Funkrufname, Kennzeichen) und Standard-Trupp
 
 ## Bereitstellen (GitHub Pages)
 
